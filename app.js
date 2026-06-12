@@ -1,14 +1,12 @@
 'use strict';
 
 const PROJECTS = [
-  { name: '本業',         color: '#4CAF50' },
-  { name: '設計事務所',   color: '#2196F3' },
-  { name: 'サウナサイト', color: '#FF9800' },
-  { name: '建築ブログ',   color: '#9C27B0' },
-  { name: 'AI',           color: '#607D8B' },
-  { name: 'ジム',         color: '#F44336' },
-  { name: '家族時間',     color: '#E91E63' },
-  { name: '自由時間',     color: '#00BCD4' },
+  { name: '本業',     color: '#4CAF50' },
+  { name: '試験勉強', color: '#2196F3' },
+  { name: '家事',     color: '#FF9800' },
+  { name: 'ジム',     color: '#F44336' },
+  { name: '自由時間', color: '#00BCD4' },
+  { name: '遊ぶ',     color: '#E91E63' },
 ];
 
 const SLOT_COUNT = 84;
