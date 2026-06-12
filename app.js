@@ -28,7 +28,6 @@ function slotToLabel(slot) {
   return `${h}:${String(m).padStart(2, '0')}`;
 }
 
-// タイムゾーン対応のローカル日付文字列
 function localDateStr(d) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -387,6 +386,47 @@ function renderDayTotal() {
   const key = dateKey(dayOffset);
   const slots = state[key] || {};
   dayTotalEl.textContent = fmtHM(Object.keys(slots).length * 15);
+  renderMiniDayChart(slots);
+}
+
+function fmtHMshort(min) {
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return m === 0 ? `${h}h` : `${h}h${m}m`;
+}
+
+function renderMiniDayChart(slots) {
+  const chart = document.getElementById('miniDayChart');
+  if (!chart) return;
+  const key = dateKey(dayOffset);
+  if (!slots) slots = state[key] || {};
+  const totals = {};
+  Object.values(slots).forEach((pName) => {
+    totals[pName] = (totals[pName] || 0) + 1;
+  });
+  const coloredCount = Object.values(totals).reduce((a, b) => a + b, 0);
+  const otherCount = state[key] !== undefined ? Math.max(0, SLOT_COUNT - coloredCount) : 0;
+  const maxCount = Math.max(1, ...PROJECTS.map((p) => totals[p.name] || 0), otherCount);
+  chart.innerHTML = '';
+  PROJECTS.forEach((p) => {
+    const count = totals[p.name] || 0;
+    const row = document.createElement('div');
+    row.className = 'mini-bar-row';
+    row.innerHTML = `
+      <span class="mini-bar-label">${p.name}</span>
+      <div class="mini-bar-track"><div class="mini-bar-fill" style="width:${(count / maxCount) * 100}%;background:${p.color}"></div></div>
+      <span class="mini-bar-value">${count > 0 ? fmtHMshort(count * 15) : ''}</span>`;
+    chart.appendChild(row);
+  });
+  if (otherCount > 0) {
+    const row = document.createElement('div');
+    row.className = 'mini-bar-row';
+    row.innerHTML = `
+      <span class="mini-bar-label other-label">その他</span>
+      <div class="mini-bar-track"><div class="mini-bar-fill" style="width:${(otherCount / maxCount) * 100}%;background:#B0BEC5"></div></div>
+      <span class="mini-bar-value">${fmtHMshort(otherCount * 15)}</span>`;
+    chart.appendChild(row);
+  }
 }
 
 function startPaint(slot) {
@@ -442,6 +482,7 @@ function switchTab(viewName) {
   viewWeek.classList.toggle('hidden', viewName !== 'week');
   viewMonth.classList.toggle('hidden', viewName !== 'month');
   dateNav.classList.toggle('hidden', viewName !== 'timeline');
+  document.getElementById('miniDayChart').classList.toggle('hidden', viewName !== 'timeline');
   if (viewName === 'week') renderWeek();
   else if (viewName === 'month') renderMonth();
   else renderTimeline();
