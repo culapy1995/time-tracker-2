@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>時間記録</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="時間記録">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="tabs">
+      <button class="tab active" data-view="timeline">タイムライン</button>
+      <button class="tab" data-view="week">週グラフ</button>
+      <button class="tab" data-view="month">今月</button>
+    </div>
+    <div class="project-selector" id="projectSelector"></div>
+    <div class="date-nav" id="dateNav">
+      <button id="prevDay">◀</button>
+      <span id="dateLabel"></span>
+      <button id="nextDay">▶</button>
+    </div>
+  </header>
+
+  <main id="view-timeline" class="view">
+    <div class="timeline" id="timeline"></div>
+    <div class="day-total">合計：<strong id="dayTotal">0時間0分</strong></div>
+  </main>
+
+  <main id="view-week" class="view hidden">
+    <div class="week-nav">
+      <button id="prevWeek">◀</button>
+      <span id="weekLabel"></span>
+      <button id="nextWeek">▶</button>
+    </div>
+    <div id="weekChart" class="week-chart"></div>
+    <div class="week-total">合計：<strong id="weekTotal">0時間0分</strong></div>
+  </main>
+
+  <main id="view-month" class="view hidden">
+    <div class="week-nav">
+      <button id="prevMonth">◀</button>
+      <span id="monthLabel"></span>
+      <button id="nextMonth">▶</button>
+    </div>
+    <div id="monthChart" class="week-chart"></div>
+    <div class="week-total">合計：<strong id="monthTotal">0時間0分</strong></div>
+  </main>
+
+  <!-- トークン設定モーダル -->
+  <div id="tokenModal" class="modal-overlay hidden">
+    <div class="modal-box">
+      <h2 class="modal-title">GitHub連携設定</h2>
+      <p class="modal-desc">データをGitHubに保存するため、Personal Access Tokenを入力してください。一度だけ設定すれば次回から不要です。</p>
+      <input id="tokenInput" type="password" class="modal-input" placeholder="ghp_xxxxxxxxxxxx">
+      <div class="modal-error hidden" id="tokenError">トークンが無効です。確認してください。</div>
+      <button id="tokenSave" class="modal-btn">保存して接続</button>
+    </div>
+  </div>
+
+  <!-- 同期ステータス -->
+  <div id="syncStatus" class="sync-status hidden"></div>
+
+  <!-- FABボタングループ -->
+  <div class="fab-group">
+    <button id="saveBtn" class="fab fab-save">保存</button>
+    <button id="cursorBtn" class="fab fab-tool" title="選択解除">↖</button>
+    <button id="undoBtn" class="fab fab-tool" title="元に戻す">↩</button>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
