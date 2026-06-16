@@ -8,6 +8,8 @@ const PROJECTS = [
   { name: '自由時間', color: '#00BCD4' },
   { name: '遊ぶ',     color: '#E91E63' },
   { name: '移動',     color: '#607D8B' },
+  { name: '風呂',     color: '#29B6F6' },
+  { name: '支度',     color: '#AB47BC' },
 ];
 
 const SLOT_COUNT = 84;
@@ -411,12 +413,13 @@ function renderMiniDayChart(slots) {
   chart.innerHTML = '';
   PROJECTS.forEach((p) => {
     const count = totals[p.name] || 0;
+    if (count === 0) return;
     const row = document.createElement('div');
     row.className = 'mini-bar-row';
     row.innerHTML = `
       <span class="mini-bar-label">${p.name}</span>
       <div class="mini-bar-track"><div class="mini-bar-fill" style="width:${(count / maxCount) * 100}%;background:${p.color}"></div></div>
-      <span class="mini-bar-value">${count > 0 ? fmtHMshort(count * 15) : ''}</span>`;
+      <span class="mini-bar-value">${fmtHMshort(count * 15)}</span>`;
     chart.appendChild(row);
   });
   if (otherCount > 0) {
