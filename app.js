@@ -14,15 +14,18 @@ const PROJECTS = [
 
 const SLOT_COUNT = 84;
 const SLOT_START_MIN = 300;
-const STORAGE_KEY = 'timeTracker.v2';
-const TOKEN_KEY = 'timeTracker.ghToken';
+const STORAGE_KEY    = 'timeTracker.v2';
+const TOKEN_KEY      = 'timeTracker.ghToken';
+const BONUS_KEY      = 'timeTracker.bonusShown';
+const BONUS_PROJECT  = '試験勉強';
+const BONUS_THRESHOLD = 10 * 60; // 10時間（分）
 const REPO_OWNER = 'culapy1995';
-const REPO_NAME = 'time-tracker-2';
-const DATA_PATH = 'data.json';
+const REPO_NAME  = 'time-tracker-2';
+const DATA_PATH  = 'data.json';
 
 // 8:45〜17:45 = slot 15〜50
 const HONGYOU_START = 15;
-const HONGYOU_END = 50;
+const HONGYOU_END   = 50;
 
 function slotToLabel(slot) {
   const total = SLOT_START_MIN + slot * 15;
@@ -83,6 +86,32 @@ let dataFileSha = null;
 let saveTimer = null;
 let browseMode = false;
 let currentTabName = 'timeline';
+
+// ── シークレットボーナス ────────────────────────────────
+
+function calcProjectTotal(projectName) {
+  let slots = 0;
+  Object.values(state).forEach(day => {
+    if (!day) return;
+    Object.values(day).forEach(p => { if (p === projectName) slots++; });
+  });
+  return slots * 15;
+}
+
+function checkBonus() {
+  if (localStorage.getItem(BONUS_KEY)) return;
+  const totalMin = calcProjectTotal(BONUS_PROJECT);
+  if (totalMin >= BONUS_THRESHOLD) {
+    localStorage.setItem(BONUS_KEY, '1');
+    setTimeout(() => {
+      document.getElementById('bonusModal').classList.remove('hidden');
+    }, 800);
+  }
+}
+
+document.getElementById('bonusCloseBtn').addEventListener('click', () => {
+  document.getElementById('bonusModal').classList.add('hidden');
+});
 
 // ── Undo ───────────────────────────────────────────────
 
@@ -191,7 +220,7 @@ function showSync(msg, success, error) {
 
 const tokenModal = document.getElementById('tokenModal');
 const tokenInput = document.getElementById('tokenInput');
-const tokenSave = document.getElementById('tokenSave');
+const tokenSave  = document.getElementById('tokenSave');
 const tokenError = document.getElementById('tokenError');
 
 async function validateAndSaveToken(token) {
@@ -246,14 +275,14 @@ tokenSave.addEventListener('click', () => {
 // ── DOM ────────────────────────────────────────────────
 
 const projectSelector = document.getElementById('projectSelector');
-const dateNav = document.getElementById('dateNav');
-const timeline = document.getElementById('timeline');
-const dateLabel = document.getElementById('dateLabel');
+const dateNav    = document.getElementById('dateNav');
+const timeline   = document.getElementById('timeline');
+const dateLabel  = document.getElementById('dateLabel');
 const dayTotalEl = document.getElementById('dayTotal');
 const viewTimeline = document.getElementById('view-timeline');
-const viewWeek = document.getElementById('view-week');
-const viewMonth = document.getElementById('view-month');
-const weekLabelEl = document.getElementById('weekLabel');
+const viewWeek   = document.getElementById('view-week');
+const viewMonth  = document.getElementById('view-month');
+const weekLabelEl  = document.getElementById('weekLabel');
 const monthLabelEl = document.getElementById('monthLabel');
 
 function buildProjectSelector() {
@@ -460,6 +489,7 @@ function onTouchMove(e) {
 function onTouchEnd() {
   isPainting = false;
   saveLocal();
+  checkBonus();
 }
 
 function onMouseDown(e) {
@@ -679,10 +709,12 @@ buildTimeline();
 renderTimeline();
 
 if (ghToken) {
-  ghFetchData().then((ok) => { if (ok) renderTimeline(); });
+  ghFetchData().then((ok) => { if (ok) { renderTimeline(); checkBonus(); } });
 } else {
   tokenModal.classList.remove('hidden');
 }
+
+checkBonus();
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('service-worker.js').catch(() => {});

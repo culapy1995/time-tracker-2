@@ -269,6 +269,61 @@ html, body {
 }
 .modal-btn:disabled { opacity: 0.6; }
 
+.bonus-box {
+  text-align: center;
+  background: linear-gradient(135deg, #fff9c4 0%, #ffffff 60%);
+}
+.bonus-emoji {
+  font-size: 56px;
+  margin-bottom: 8px;
+  animation: bonus-pop .4s cubic-bezier(.36,1.56,.64,1) both;
+}
+@keyframes bonus-pop {
+  from { transform: scale(0); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+.bonus-title {
+  margin: 0 0 12px;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--green-dark);
+}
+.bonus-body {
+  margin: 0 0 16px;
+  font-size: 14px;
+  color: var(--text);
+  line-height: 1.7;
+}
+.bonus-next {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 10px 0 0;
+}
+.bonus-warning {
+  font-size: 12px;
+  color: #e65100;
+  margin: 12px 0 12px;
+  line-height: 1.6;
+  font-weight: 600;
+}
+.bonus-code-label {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0 0 6px;
+  font-weight: 600;
+}
+.bonus-code {
+  background: var(--green-light);
+  border: 2px dashed var(--green);
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--green-dark);
+  letter-spacing: 0.04em;
+  margin-bottom: 16px;
+}
+
 .sync-status {
   position: fixed;
   bottom: calc(var(--safe-bottom) + 16px);

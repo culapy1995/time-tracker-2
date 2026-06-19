@@ -53,6 +53,21 @@
     <div class="week-total">合計：<strong id="monthTotal">0時間0分</strong></div>
   </main>
 
+  <!-- シークレットボーナスモーダル -->
+  <div id="bonusModal" class="modal-overlay hidden">
+    <div class="modal-box bonus-box">
+      <div class="bonus-emoji">🎉</div>
+      <h2 class="bonus-title">シークレットボーナス！</h2>
+      <p class="bonus-body">勉強10時間お疲れ様！<br>本当によく頑張ってます！</p>
+      <p class="bonus-body" style="margin-bottom:4px;font-size:13px;color:var(--muted)">開発者（倉本氏）にこのシークレットコードを伝えると、好きなジュースを1本プレゼント！</p>
+      <p class="bonus-code-label">↓ シークレットコード ↓</p>
+      <div class="bonus-code">先生、10時間達成しました！</div>
+      <p class="bonus-warning">⚠️ このウィンドウは1回消すと2度と表示されません！<br>シークレットコードを覚えましたか？</p>
+      <button id="bonusCloseBtn" class="modal-btn">覚えたので、ウィンドウを閉じる</button>
+      <p class="bonus-next">次回のシークレットボーナスもお楽しみに！</p>
+    </div>
+  </div>
+
   <!-- トークン設定モーダル -->
   <div id="tokenModal" class="modal-overlay hidden">
     <div class="modal-box">
