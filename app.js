@@ -188,7 +188,7 @@ async function ghSaveData() {
     if (!res.ok) throw new Error(res.status);
     const json = await res.json();
     dataFileSha = json.content.sha;
-    showSync('保存完了', true);
+    showSync('保存しました。', true);
   } catch (e) {
     showSync('保存失敗', false, true);
   }
@@ -489,7 +489,7 @@ function onTouchMove(e) {
 }
 function onTouchEnd() {
   isPainting = false;
-  saveLocal();
+  scheduleSave();
   checkBonus();
 }
 
@@ -503,7 +503,7 @@ function onMouseMove(e) {
 function onMouseUp() {
   if (!isPainting) return;
   isPainting = false;
-  saveLocal();
+  scheduleSave();
 }
 
 // ── タブ切り替え ────────────────────────────────────────
