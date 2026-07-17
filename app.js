@@ -19,12 +19,11 @@ const STORAGE_KEY    = 'timeTracker.v2';
 const TOKEN_KEY      = 'timeTracker.ghToken';
 const BONUS_KEY      = 'timeTracker.bonusShown';
 const BONUS_PROJECT  = '試験勉強';
-const BONUS_THRESHOLD = 10 * 60; // 10時間（分）
+const BONUS_THRESHOLD = 10 * 60;
 const REPO_OWNER = 'culapy1995';
 const REPO_NAME  = 'time-tracker-2';
 const DATA_PATH  = 'data.json';
 
-// 8:45〜17:45 = slot 15〜50
 const HONGYOU_START = 15;
 const HONGYOU_END   = 50;
 
@@ -85,6 +84,8 @@ let monthOffset = 0;
 let ghToken = localStorage.getItem(TOKEN_KEY) || '';
 let dataFileSha = null;
 let saveTimer = null;
+let isSaving = false;
+let pendingSave = false;
 let browseMode = false;
 let currentTabName = 'timeline';
 
@@ -173,8 +174,25 @@ async function ghFetchData() {
 
 async function ghSaveData() {
   if (!ghToken) return;
+  if (isSaving) {
+    pendingSave = true;
+    return;
+  }
+  isSaving = true;
+  pendingSave = false;
   showSync('保存中…');
   try {
+    // SHAが不明な場合は先に取得する
+    if (!dataFileSha) {
+      const r = await fetch(
+        `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${DATA_PATH}`,
+        { headers: apiHeaders() }
+      );
+      if (r.ok) {
+        const j = await r.json();
+        dataFileSha = j.sha;
+      }
+    }
     const content = btoa(unescape(encodeURIComponent(JSON.stringify(state))));
     const body = {
       message: 'update time tracker data',
@@ -185,12 +203,34 @@ async function ghSaveData() {
       `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${DATA_PATH}`,
       { method: 'PUT', headers: apiHeaders(), body: JSON.stringify(body) }
     );
-    if (!res.ok) throw new Error(res.status);
+    if (!res.ok) {
+      // 409 conflict: SHAがずれたので最新SHAを取り直してリトライ
+      if (res.status === 409 || res.status === 422) {
+        const r2 = await fetch(
+          `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${DATA_PATH}`,
+          { headers: apiHeaders() }
+        );
+        if (r2.ok) {
+          const j2 = await r2.json();
+          dataFileSha = j2.sha;
+          isSaving = false;
+          await ghSaveData();
+          return;
+        }
+      }
+      throw new Error(res.status);
+    }
     const json = await res.json();
     dataFileSha = json.content.sha;
     showSync('保存しました。', true);
   } catch (e) {
     showSync('保存失敗', false, true);
+  } finally {
+    isSaving = false;
+    if (pendingSave) {
+      pendingSave = false;
+      setTimeout(() => ghSaveData(), 500);
+    }
   }
 }
 
