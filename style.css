@@ -424,3 +424,304 @@ html, body {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
+
+/* ── シークレットミッション ── */
+.mission-section {
+  background: var(--white);
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  margin-top: 20px;
+  padding: 14px 16px;
+}
+.mission-header { font-size: 14px; font-weight: 700; }
+.mission-note { font-size: 11px; color: var(--muted); margin: 4px 0 8px; }
+.mission-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 4px;
+  font-size: 14px;
+  border-bottom: 1px dashed var(--border);
+}
+.mission-item:last-child { border-bottom: none; }
+.mission-check { font-size: 15px; flex-shrink: 0; }
+.mission-item.claimed,
+.mission-item.claimed .mission-text { color: #b9c4b9; }
+.mission-item.pending {
+  background: #fff8e1;
+  border-radius: 8px;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+.mission-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: #e65100;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.gacha-link-btn {
+  display: block;
+  width: 100%;
+  margin: 4px 0 12px;
+  padding: 12px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #ff9800, #fb8c00);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+#missionModalList { max-height: 40vh; overflow-y: auto; margin-bottom: 8px; }
+.mission-modal-item { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+
+/* ── ガチャページ ── */
+.gacha-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: calc(var(--safe-top) + 4px) 0 10px;
+}
+.gacha-back {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--white);
+  padding: 8px 14px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+}
+.gacha-ticket-count { font-size: 15px; font-weight: 800; color: var(--green-dark); }
+
+.gacha-subtabs {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+.gacha-subtab {
+  flex: 1;
+  padding: 9px 0;
+  border: none;
+  background: var(--white);
+  color: var(--muted);
+  font-size: 13px; font-weight: 600;
+  border-right: 1px solid var(--border);
+  cursor: pointer;
+}
+.gacha-subtab:last-child { border-right: none; }
+.gacha-subtab.active { background: var(--green); color: #fff; }
+
+.egg-carousel {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  gap: 14px;
+  padding: 22px max(0px, calc(50% - 130px)) 10px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.egg-carousel::-webkit-scrollbar { display: none; }
+.egg-card {
+  flex: 0 0 240px;
+  scroll-snap-align: center;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 20px 14px 16px;
+  text-align: center;
+  transition: transform .25s, opacity .25s, box-shadow .25s;
+  transform: scale(0.92);
+  opacity: 0.75;
+}
+.egg-card.active {
+  transform: scale(1);
+  opacity: 1;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.10);
+}
+.egg-visual { display: flex; justify-content: center; margin-bottom: 12px; }
+.egg-name { font-size: 15px; font-weight: 800; }
+.egg-cost { font-size: 14px; font-weight: 700; color: var(--green-dark); margin: 4px 0; }
+.egg-hint { font-size: 11px; color: var(--muted); }
+
+.egg-shape {
+  width: 110px;
+  height: 140px;
+  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+  box-shadow: inset -10px -12px 20px rgba(0,0,0,0.10), 0 8px 16px rgba(0,0,0,0.12);
+}
+.egg-tier1 { background: linear-gradient(160deg, #fffdf7 20%, #f3e7cf 85%); }
+.egg-tier2 { background: linear-gradient(160deg, #f4f9ff 15%, #b9cbe8 85%); }
+.egg-tier3 { background: linear-gradient(160deg, #fff7d6 10%, #f2c94c 80%); }
+
+.egg-dots { display: flex; justify-content: center; gap: 8px; margin: 6px 0 14px; }
+.egg-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); }
+.egg-dot.active { background: var(--green); }
+.draw-ticket-status { text-align: center; font-size: 13px; color: var(--muted); margin-bottom: 10px; }
+.draw-btn { cursor: pointer; }
+.draw-btn:disabled { background: #b0bec5; }
+
+/* ── 確率表 ── */
+.odds-section {
+  margin-top: 18px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.odds-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  margin-bottom: 8px;
+  text-align: center;
+}
+.odds-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  font-size: 13px;
+  border-bottom: 1px solid var(--green-light);
+}
+.odds-row:last-child { border-bottom: none; }
+.odds-emoji { font-size: 16px; flex-shrink: 0; width: 20px; text-align: center; }
+.odds-star { flex-shrink: 0; color: #f9a825; font-size: 11px; width: 34px; }
+.odds-name { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.odds-pct {
+  flex-shrink: 0;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--green-dark);
+  width: 52px;
+  text-align: right;
+}
+
+/* ── チケット一覧 ── */
+#prizeList { margin-top: 4px; }
+.prize-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+}
+.prize-emoji { font-size: 26px; flex-shrink: 0; }
+.prize-info { flex: 1; min-width: 0; }
+.prize-name { font-size: 14px; font-weight: 700; }
+.prize-date { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.prize-use-btn {
+  flex-shrink: 0;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 8px;
+  background: var(--green);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.prize-item.used { opacity: 0.55; }
+.prize-item.used .prize-name { color: var(--muted); text-decoration: line-through; }
+.prize-used-label { font-size: 12px; font-weight: 700; color: var(--muted); flex-shrink: 0; }
+.prize-empty {
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.8;
+  padding: 40px 0;
+}
+
+/* ── ガチャ演出 ── */
+.gacha-anim {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  background: rgba(20, 12, 40, 0.86);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.gacha-anim-glow { position: absolute; inset: 0; opacity: 0; pointer-events: none; }
+.stage-open .gacha-anim-glow { animation: glow-flash 1s ease-out forwards; }
+@keyframes glow-flash {
+  0%   { opacity: 0; }
+  15%  { opacity: 1; }
+  100% { opacity: 0.55; }
+}
+.glow-low  { background: radial-gradient(circle, rgba(255,255,255,0.85) 0%, transparent 65%); }
+.glow-mid  { background: radial-gradient(circle, rgba(255,224,130,0.95) 0%, transparent 65%); }
+.glow-high { background: radial-gradient(circle, rgba(255,167,38,0.95) 0%, rgba(255,236,64,0.5) 40%, transparent 70%); }
+.glow-ultra {
+  inset: -50%;
+  background: conic-gradient(#ff5252, #ffb142, #fff176, #69f0ae, #40c4ff, #b388ff, #ff5252);
+  filter: blur(40px);
+}
+.stage-open .glow-ultra { animation: glow-flash 1s ease-out forwards, glow-spin 4s linear infinite; }
+@keyframes glow-spin { to { transform: rotate(360deg); } }
+
+.gacha-anim-stage { position: relative; display: flex; flex-direction: column; align-items: center; }
+.anim-egg-wrap { position: relative; width: 110px; height: 140px; }
+.anim-egg-wrap .egg-shape { position: absolute; inset: 0; }
+.stage-shake .anim-egg-wrap { animation: egg-shake .7s ease-in-out infinite; }
+.stage-crack .anim-egg-wrap { animation: egg-shake .28s ease-in-out infinite; }
+.stage-open .anim-egg-wrap { animation: none; }
+@keyframes egg-shake {
+  0%, 100% { transform: rotate(0); }
+  20% { transform: rotate(-9deg) translateX(-3px); }
+  40% { transform: rotate(8deg) translateX(3px); }
+  60% { transform: rotate(-7deg); }
+  80% { transform: rotate(6deg); }
+}
+.egg-crack-svg { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; z-index: 2; }
+.stage-crack .egg-crack-svg { opacity: 1; }
+.stage-open .egg-crack-svg { opacity: 0; }
+.stage-open .anim-egg-full { opacity: 0; }
+.egg-piece { position: absolute; inset: 0; opacity: 0; z-index: 1; }
+.egg-piece-top {
+  clip-path: polygon(0 0, 100% 0, 100% 46%, 82% 52%, 65% 42%, 50% 54%, 33% 43%, 15% 53%, 0 46%);
+}
+.egg-piece-bottom {
+  clip-path: polygon(0 46%, 15% 53%, 33% 43%, 50% 54%, 65% 42%, 82% 52%, 100% 46%, 100% 100%, 0 100%);
+}
+.stage-open .egg-piece { opacity: 1; }
+.stage-open .egg-piece-top { animation: piece-top .65s ease-out forwards; }
+.stage-open .egg-piece-bottom { animation: piece-bottom .65s ease-out forwards; }
+@keyframes piece-top {
+  0%   { transform: none; opacity: 1; }
+  100% { transform: translate(-46px, -120px) rotate(-28deg); opacity: 0; }
+}
+@keyframes piece-bottom {
+  0%   { transform: none; opacity: 1; }
+  100% { transform: translate(30px, 70px) rotate(14deg); opacity: 0; }
+}
+
+.gacha-result {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(320px, calc(100vw - 48px));
+  background: var(--white);
+  border-radius: 18px;
+  padding: 24px 20px;
+  text-align: center;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+  animation: result-pop .45s cubic-bezier(.36,1.56,.64,1) both;
+  z-index: 5;
+}
+@keyframes result-pop {
+  from { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+  to   { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+.gacha-result-stars { font-size: 17px; letter-spacing: 1px; margin-bottom: 6px; }
+.stars-filled { color: #f9a825; }
+.stars-empty { color: #d5dcd5; }
+.gacha-result-emoji { font-size: 54px; margin: 6px 0; }
+.gacha-result-name { font-size: 18px; font-weight: 800; color: var(--text); }
+.gacha-result-sub { font-size: 12px; color: var(--muted); margin: 8px 0 4px; line-height: 1.6; }

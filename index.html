@@ -41,6 +41,14 @@
     </div>
     <div id="weekChart" class="week-chart"></div>
     <div class="week-total">合計：<strong id="weekTotal">0時間0分</strong></div>
+
+    <!-- シークレットミッション（週） -->
+    <div class="mission-section" id="missionSection-week">
+      <div class="mission-header">◼️ シークレットミッション一覧</div>
+      <div class="mission-note">※一週間で達成して報酬GET！<br>※週毎にリセットされます</div>
+      <button class="gacha-link-btn gacha-link">ガチャページへ　<span class="gacha-link-tickets" id="gachaLinkTickets-week"></span></button>
+      <div class="mission-list" id="missionList-week"></div>
+    </div>
   </main>
 
   <main id="view-month" class="view hidden">
@@ -51,6 +59,41 @@
     </div>
     <div id="monthChart" class="week-chart"></div>
     <div class="week-total">合計：<strong id="monthTotal">0時間0分</strong></div>
+
+    <!-- シークレットミッション（月） -->
+    <div class="mission-section" id="missionSection-month">
+      <div class="mission-header">◼️ シークレットミッション一覧</div>
+      <div class="mission-note">※一ヶ月で達成して報酬GET！<br>※月毎にリセットされます</div>
+      <button class="gacha-link-btn gacha-link">ガチャページへ　<span class="gacha-link-tickets" id="gachaLinkTickets-month"></span></button>
+      <div class="mission-list" id="missionList-month"></div>
+    </div>
+  </main>
+
+  <!-- ── ガチャページ ── -->
+  <main id="view-gacha" class="view hidden">
+    <div class="gacha-top">
+      <button id="gachaBackBtn" class="gacha-back">← もどる</button>
+      <div class="gacha-ticket-count">🎫 <span id="gachaTicketCount">0</span>枚</div>
+    </div>
+    <div class="gacha-subtabs">
+      <button class="gacha-subtab active" data-gtab="draw">ガチャを引く</button>
+      <button class="gacha-subtab" data-gtab="tickets">チケット一覧</button>
+    </div>
+
+    <div id="gachaDrawPane">
+      <div class="egg-carousel" id="eggCarousel"></div>
+      <div class="egg-dots" id="eggDots"></div>
+      <div class="draw-ticket-status" id="drawTicketStatus"></div>
+      <button id="drawBtn" class="modal-btn draw-btn">たまごを割る！</button>
+      <div class="odds-section" id="oddsSection">
+        <div class="odds-title" id="oddsTitle">景品と当たる確率</div>
+        <div class="odds-list" id="oddsList"></div>
+      </div>
+    </div>
+
+    <div id="gachaTicketsPane" class="hidden">
+      <div id="prizeList"></div>
+    </div>
   </main>
 
   <!-- シークレットボーナスモーダル -->
@@ -76,6 +119,43 @@
       <input id="tokenInput" type="password" class="modal-input" placeholder="ghp_xxxxxxxxxxxx">
       <div class="modal-error hidden" id="tokenError">トークンが無効です。確認してください。</div>
       <button id="tokenSave" class="modal-btn">保存して接続</button>
+    </div>
+  </div>
+
+  <!-- ミッション達成モーダル -->
+  <div id="missionModal" class="modal-overlay hidden">
+    <div class="modal-box bonus-box">
+      <div class="bonus-emoji">🎉</div>
+      <h2 class="bonus-title">シークレットミッション達成！</h2>
+      <div id="missionModalList"></div>
+      <p class="bonus-body">報酬としてガチャ券をプレゼント！</p>
+      <p class="bonus-code-label">↓ 報酬 ↓</p>
+      <div class="bonus-code" id="missionModalReward">🎫 ガチャ券 ×1</div>
+      <button id="missionClaimBtn" class="modal-btn">ガチャ券を受け取る</button>
+      <p class="bonus-next">シークレットミッションはまだまだあるかも…？</p>
+    </div>
+  </div>
+
+  <!-- ガチャ演出オーバーレイ -->
+  <div id="gachaAnim" class="gacha-anim hidden">
+    <div class="gacha-anim-glow" id="gachaAnimGlow"></div>
+    <div class="gacha-anim-stage">
+      <div class="anim-egg-wrap" id="animEggWrap">
+        <div class="egg-shape anim-egg-full" id="animEggFull"></div>
+        <svg class="egg-crack-svg" viewBox="0 0 110 140" aria-hidden="true">
+          <polyline points="8,72 26,60 42,76 56,58 72,74 90,60 103,70"
+                    fill="none" stroke="rgba(90,60,30,0.65)" stroke-width="3" stroke-linejoin="round"/>
+        </svg>
+        <div class="egg-piece egg-piece-top"><div class="egg-shape" id="animEggTop"></div></div>
+        <div class="egg-piece egg-piece-bottom"><div class="egg-shape" id="animEggBottom"></div></div>
+      </div>
+      <div class="gacha-result hidden" id="gachaResult">
+        <div class="gacha-result-stars" id="gachaResultStars"></div>
+        <div class="gacha-result-emoji" id="gachaResultEmoji"></div>
+        <div class="gacha-result-name" id="gachaResultName"></div>
+        <p class="gacha-result-sub" id="gachaResultSub"></p>
+        <button id="gachaResultClose" class="modal-btn">OK</button>
+      </div>
     </div>
   </div>
 

@@ -19,11 +19,12 @@ const STORAGE_KEY    = 'timeTracker.v2';
 const TOKEN_KEY      = 'timeTracker.ghToken';
 const BONUS_KEY      = 'timeTracker.bonusShown';
 const BONUS_PROJECT  = '試験勉強';
-const BONUS_THRESHOLD = 10 * 60;
+const BONUS_THRESHOLD = 10 * 60; // 10時間（分）
 const REPO_OWNER = 'culapy1995';
 const REPO_NAME  = 'time-tracker-2';
 const DATA_PATH  = 'data.json';
 
+// 8:45〜17:45 = slot 15〜50
 const HONGYOU_START = 15;
 const HONGYOU_END   = 50;
 
@@ -84,8 +85,6 @@ let monthOffset = 0;
 let ghToken = localStorage.getItem(TOKEN_KEY) || '';
 let dataFileSha = null;
 let saveTimer = null;
-let isSaving = false;
-let pendingSave = false;
 let browseMode = false;
 let currentTabName = 'timeline';
 
@@ -174,25 +173,8 @@ async function ghFetchData() {
 
 async function ghSaveData() {
   if (!ghToken) return;
-  if (isSaving) {
-    pendingSave = true;
-    return;
-  }
-  isSaving = true;
-  pendingSave = false;
   showSync('保存中…');
   try {
-    // SHAが不明な場合は先に取得する
-    if (!dataFileSha) {
-      const r = await fetch(
-        `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${DATA_PATH}`,
-        { headers: apiHeaders() }
-      );
-      if (r.ok) {
-        const j = await r.json();
-        dataFileSha = j.sha;
-      }
-    }
     const content = btoa(unescape(encodeURIComponent(JSON.stringify(state))));
     const body = {
       message: 'update time tracker data',
@@ -203,34 +185,12 @@ async function ghSaveData() {
       `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${DATA_PATH}`,
       { method: 'PUT', headers: apiHeaders(), body: JSON.stringify(body) }
     );
-    if (!res.ok) {
-      // 409 conflict: SHAがずれたので最新SHAを取り直してリトライ
-      if (res.status === 409 || res.status === 422) {
-        const r2 = await fetch(
-          `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${DATA_PATH}`,
-          { headers: apiHeaders() }
-        );
-        if (r2.ok) {
-          const j2 = await r2.json();
-          dataFileSha = j2.sha;
-          isSaving = false;
-          await ghSaveData();
-          return;
-        }
-      }
-      throw new Error(res.status);
-    }
+    if (!res.ok) throw new Error(res.status);
     const json = await res.json();
     dataFileSha = json.content.sha;
-    showSync('保存しました。', true);
+    showSync('保存完了', true);
   } catch (e) {
     showSync('保存失敗', false, true);
-  } finally {
-    isSaving = false;
-    if (pendingSave) {
-      pendingSave = false;
-      setTimeout(() => ghSaveData(), 500);
-    }
   }
 }
 
@@ -529,7 +489,7 @@ function onTouchMove(e) {
 }
 function onTouchEnd() {
   isPainting = false;
-  scheduleSave();
+  saveLocal();
   checkBonus();
 }
 
@@ -543,12 +503,13 @@ function onMouseMove(e) {
 function onMouseUp() {
   if (!isPainting) return;
   isPainting = false;
-  scheduleSave();
+  saveLocal();
 }
 
 // ── タブ切り替え ────────────────────────────────────────
 
 function switchTab(viewName) {
+  if (gachaOpen) closeGacha(true);
   currentTabName = viewName;
   document.querySelectorAll('.tab').forEach((t) => {
     t.classList.toggle('active', t.dataset.view === viewName);
@@ -558,8 +519,8 @@ function switchTab(viewName) {
   viewMonth.classList.toggle('hidden', viewName !== 'month');
   dateNav.classList.toggle('hidden', viewName !== 'timeline');
   document.getElementById('miniDayChart').classList.toggle('hidden', viewName !== 'timeline');
-  if (viewName === 'week') renderWeek();
-  else if (viewName === 'month') renderMonth();
+  if (viewName === 'week') { renderWeek(); maybeShowMissionModal('week'); }
+  else if (viewName === 'month') { renderMonth(); maybeShowMissionModal('month'); }
   else renderTimeline();
 }
 
@@ -579,7 +540,9 @@ document.addEventListener('touchend', (e) => {
   const dx = e.changedTouches[0].clientX - swipeStartX;
   const dy = e.changedTouches[0].clientY - swipeStartY;
   swipeStartX = null;
+  if (gachaOpen) return;
   if (swipeTarget && swipeTarget.closest('.slot-block')) return;
+  if (swipeTarget && swipeTarget.closest('.egg-carousel')) return;
   if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
   const idx = TAB_ORDER.indexOf(currentTabName);
   if (dx < 0) {
@@ -656,6 +619,7 @@ function renderWeek() {
   }
 
   document.getElementById('weekTotal').textContent = fmtHM(weekTotal);
+  renderMissionSection('week');
 }
 
 // ── 月グラフ ────────────────────────────────────────────
@@ -716,6 +680,7 @@ function renderMonth() {
   }
 
   document.getElementById('monthTotal').textContent = fmtHM(monthTotal);
+  renderMissionSection('month');
 }
 
 // ── イベントリスナー ────────────────────────────────────
@@ -735,12 +700,427 @@ document.addEventListener('visibilitychange', () => {
   if (!document.hidden && ghToken) {
     ghFetchData().then((ok) => {
       if (!ok) return;
-      if (currentTabName === 'week') renderWeek();
-      else if (currentTabName === 'month') renderMonth();
+      if (gachaOpen) { renderGachaPage(); return; }
+      if (currentTabName === 'week') { renderWeek(); maybeShowMissionModal('week'); }
+      else if (currentTabName === 'month') { renderMonth(); maybeShowMissionModal('month'); }
       else renderTimeline();
     });
   }
 });
+
+// ── シークレットミッション ─────────────────────────────
+
+const GACHA_KEY = 'timeTracker.gacha.v1';
+
+// mode: 'gte' = 目標時間以上で達成（現在はすべてこのタイプ）
+// 週ビュー・月ビュー共通のミッション。判定は表示中の週/月に対して行い、週毎・月毎にリセットされる。
+// ★ project: の値は友達サイトの記録項目名（試験勉強／学校／家事）に合わせてある ★
+const MISSION_DEFS = [
+  { id: 'shikaku-10', project: '試験勉強', hours: 10, mode: 'gte', tickets: 1 },
+  { id: 'shikaku-15', project: '試験勉強', hours: 15, mode: 'gte', tickets: 1 },
+  { id: 'shikaku-20', project: '試験勉強', hours: 20, mode: 'gte', tickets: 1 },
+  { id: 'shikaku-25', project: '試験勉強', hours: 25, mode: 'gte', tickets: 1 },
+  { id: 'shikaku-30', project: '試験勉強', hours: 30, mode: 'gte', tickets: 1 },
+  { id: 'shikaku-32', project: '試験勉強', hours: 32, mode: 'gte', tickets: 1 },
+  { id: 'shikaku-34', project: '試験勉強', hours: 34, mode: 'gte', tickets: 1 },
+  { id: 'shikaku-35', project: '試験勉強', hours: 35, mode: 'gte', tickets: 1 },
+  { id: 'shikaku-36', project: '試験勉強', hours: 36, mode: 'gte', tickets: 1 },
+  { id: 'shikaku-37', project: '試験勉強', hours: 37, mode: 'gte', tickets: 1 },
+  { id: 'shikaku-38', project: '試験勉強', hours: 38, mode: 'gte', tickets: 1 },
+  { id: 'shikaku-39', project: '試験勉強', hours: 39, mode: 'gte', tickets: 1 },
+  { id: 'shikaku-40', project: '試験勉強', hours: 40, mode: 'gte', tickets: 1 },
+  { id: 'gakko-10',   project: '学校',     hours: 10, mode: 'gte', tickets: 1 },
+  { id: 'gakko-20',   project: '学校',     hours: 20, mode: 'gte', tickets: 1 },
+  { id: 'gakko-30',   project: '学校',     hours: 30, mode: 'gte', tickets: 1 },
+  { id: 'kaji-15',    project: '家事',     hours: 15, mode: 'gte', tickets: 1 },
+  { id: 'kaji-30',    project: '家事',     hours: 30, mode: 'gte', tickets: 1 },
+];
+
+function loadGacha() {
+  try {
+    const r = localStorage.getItem(GACHA_KEY);
+    if (r) {
+      const g = JSON.parse(r);
+      return { tickets: g.tickets || 0, claimed: g.claimed || [], achieved: g.achieved || [], prizes: g.prizes || [] };
+    }
+  } catch (e) {}
+  return { tickets: 0, claimed: [], achieved: [], prizes: [] };
+}
+function saveGacha() { localStorage.setItem(GACHA_KEY, JSON.stringify(gacha)); }
+
+let gacha = loadGacha();
+
+// 表示中の週/月に含まれる日付キー一覧
+function periodDayKeys(period, offset) {
+  const keys = [];
+  if (period === 'week') {
+    const ws = startOfWeekDate(offset);
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(ws); d.setDate(ws.getDate() + i);
+      keys.push(localDateStr(d));
+    }
+  } else {
+    const base = new Date(); base.setDate(1); base.setMonth(base.getMonth() + offset); base.setHours(0, 0, 0, 0);
+    const dim = new Date(base.getFullYear(), base.getMonth() + 1, 0).getDate();
+    for (let i = 0; i < dim; i++) {
+      const d = new Date(base); d.setDate(i + 1);
+      keys.push(localDateStr(d));
+    }
+  }
+  return keys;
+}
+
+// 表示中の週/月を一意に識別するキー（受取記録・リセットの単位）
+function periodKeyStr(period, offset) {
+  if (period === 'week') return localDateStr(startOfWeekDate(offset));
+  const base = new Date(); base.setDate(1); base.setMonth(base.getMonth() + offset);
+  return `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, '0')}`;
+}
+
+// 表示中の週/月におけるプロジェクト合計（分）
+function projectMinInPeriod(project, period, offset) {
+  let c = 0;
+  periodDayKeys(period, offset).forEach((k) => {
+    const slots = state[k];
+    if (!slots) return;
+    Object.values(slots).forEach((n) => { if (n === project) c++; });
+  });
+  return c * 15;
+}
+
+// 表示中の週/月に対して達成しているか（週毎・月毎で判定＝リセットされる）
+// lte（〜以下）は、そのプロジェクトを1分以上使った上で閾値以下のときだけ達成（0時間＝未使用は対象外）
+function isAchieved(ms, period, offset) {
+  const min = projectMinInPeriod(ms.project, period, offset);
+  return ms.mode === 'lte' ? (min > 0 && min <= ms.hours * 60) : min >= ms.hours * 60;
+}
+
+function claimKey(ms, period, offset) {
+  return `${period}:${periodKeyStr(period, offset)}:${ms.id}`;
+}
+
+function missionText(ms, masked) {
+  const num = masked ? '◯'.repeat(String(ms.hours).length) : String(ms.hours);
+  return ms.mode === 'lte'
+    ? `${ms.project}が${num}時間以下だった`
+    : `${ms.project}を${num}時間達成！`;
+}
+
+function unclaimedAchievedFor(period, offset) {
+  return MISSION_DEFS.filter((ms) =>
+    !gacha.claimed.includes(claimKey(ms, period, offset)) && isAchieved(ms, period, offset));
+}
+
+function renderMissionSection(period) {
+  const list = document.getElementById('missionList-' + period);
+  if (!list) return;
+  const offset = period === 'week' ? weekOffset : monthOffset;
+  list.innerHTML = '';
+  MISSION_DEFS.forEach((ms) => {
+    const achieved = isAchieved(ms, period, offset);
+    const claimed = gacha.claimed.includes(claimKey(ms, period, offset));
+    const item = document.createElement('div');
+    item.className = 'mission-item' + (achieved ? (claimed ? ' claimed' : ' pending') : '');
+    const badge = achieved && !claimed ? '<span class="mission-badge">【受取待ち】</span>' : '';
+    item.innerHTML =
+      `<span class="mission-check">${achieved ? '✅' : '☐'}</span>` +
+      `<span class="mission-text">${missionText(ms, false)}</span>${badge}`;
+    if (achieved && !claimed) item.addEventListener('click', () => maybeShowMissionModal(period));
+    list.appendChild(item);
+  });
+  const linkTickets = document.getElementById('gachaLinkTickets-' + period);
+  if (linkTickets) linkTickets.textContent = gacha.tickets > 0 ? `🎫×${gacha.tickets}` : '';
+}
+
+let missionModalTimer = null;
+let modalPeriod = 'week';
+let modalOffset = 0;
+
+function maybeShowMissionModal(period) {
+  const offset = period === 'week' ? weekOffset : monthOffset;
+  const unclaimed = unclaimedAchievedFor(period, offset);
+  if (!unclaimed.length) return;
+  modalPeriod = period;
+  modalOffset = offset;
+  const listEl = document.getElementById('missionModalList');
+  listEl.innerHTML = '';
+  unclaimed.forEach((ms) => {
+    const div = document.createElement('div');
+    div.className = 'mission-modal-item';
+    div.textContent = `✅ ${missionText(ms, false)}（${period === 'week' ? '週' : '月'}）`;
+    listEl.appendChild(div);
+  });
+  const total = unclaimed.reduce((a, ms) => a + ms.tickets, 0);
+  document.getElementById('missionModalReward').textContent = `🎫 ガチャ券 ×${total}`;
+  clearTimeout(missionModalTimer);
+  missionModalTimer = setTimeout(() => {
+    if (!unclaimedAchievedFor(modalPeriod, modalOffset).length) return;
+    document.getElementById('missionModal').classList.remove('hidden');
+  }, 400);
+}
+
+function claimMissions() {
+  clearTimeout(missionModalTimer);
+  unclaimedAchievedFor(modalPeriod, modalOffset).forEach((ms) => {
+    gacha.claimed.push(claimKey(ms, modalPeriod, modalOffset));
+    gacha.tickets += ms.tickets;
+  });
+  saveGacha();
+  document.getElementById('missionModal').classList.add('hidden');
+  if (gachaOpen) renderGachaPage();
+  else if (currentTabName === 'week') renderMissionSection('week');
+  else if (currentTabName === 'month') renderMissionSection('month');
+}
+
+// ── ガチャ ──────────────────────────────────────────────
+
+const PRIZES = [
+  { star: 1,  name: 'ハズレ',               emoji: '💨' },
+  { star: 2,  name: '駄菓子',               emoji: '🍬' },
+  { star: 3,  name: 'ジュース',             emoji: '🧃' },
+  { star: 4,  name: 'コンビニアイス',       emoji: '🍦' },
+  { star: 5,  name: '31アイスクリーム',     emoji: '🍨' },
+  { star: 6,  name: 'コメダ珈琲',           emoji: '☕' },
+  { star: 7,  name: 'ランチ券',             emoji: '🍝' },
+  { star: 8,  name: '晩御飯券（お酒なし）', emoji: '🍽️' },
+  { star: 9,  name: '飲み会券',             emoji: '🍻' },
+  { star: 10, name: '倉本からの祝福の言葉', emoji: '👑' },
+];
+
+const GACHA_EGGS = [
+  { tier: 1, cost: 1,  name: 'ノーマルたまご', hint: '⭐️の高い景品は出にくい…',
+    weights: [50, 25, 12, 6, 3, 2, 1, 0.7, 0.25, 0.05] },
+  { tier: 2, cost: 5,  name: 'スーパーたまご', hint: 'バランス型！',
+    weights: [20, 20, 18, 15, 11, 7, 4, 3, 1.5, 0.5] },
+  { tier: 3, cost: 10, name: 'ウルトラたまご', hint: '⭐️の高い景品が出やすい！',
+    weights: [5, 8, 12, 15, 17, 15, 12, 8, 6, 2] },
+];
+
+let gachaOpen = false;
+let gachaReturnView = 'week';
+let currentGachaTab = 'draw';
+let activeEggIdx = 0;
+let eggCarouselBuilt = false;
+let isDrawing = false;
+const animTimers = [];
+
+function openGacha() {
+  gachaOpen = true;
+  gachaReturnView = currentTabName;
+  document.querySelector('.app-header').classList.add('hidden');
+  viewTimeline.classList.add('hidden');
+  viewWeek.classList.add('hidden');
+  viewMonth.classList.add('hidden');
+  document.getElementById('view-gacha').classList.remove('hidden');
+  document.querySelector('.fab-group').classList.add('hidden');
+  buildEggCarousel();
+  renderGachaPage();
+}
+
+function closeGacha(silent) {
+  gachaOpen = false;
+  document.getElementById('view-gacha').classList.add('hidden');
+  document.querySelector('.app-header').classList.remove('hidden');
+  document.querySelector('.fab-group').classList.remove('hidden');
+  if (!silent) switchTab(gachaReturnView || 'week');
+}
+
+function renderGachaPage() {
+  document.getElementById('gachaTicketCount').textContent = gacha.tickets;
+  document.querySelectorAll('.gacha-subtab').forEach((t) => {
+    t.classList.toggle('active', t.dataset.gtab === currentGachaTab);
+  });
+  document.getElementById('gachaDrawPane').classList.toggle('hidden', currentGachaTab !== 'draw');
+  document.getElementById('gachaTicketsPane').classList.toggle('hidden', currentGachaTab !== 'tickets');
+  if (currentGachaTab === 'draw') renderDrawUI();
+  else renderPrizeList();
+}
+
+function buildEggCarousel() {
+  if (eggCarouselBuilt) return;
+  eggCarouselBuilt = true;
+  const car = document.getElementById('eggCarousel');
+  GACHA_EGGS.forEach((egg, i) => {
+    const card = document.createElement('div');
+    card.className = 'egg-card';
+    card.dataset.idx = i;
+    card.innerHTML = `
+      <div class="egg-visual"><div class="egg-shape egg-tier${egg.tier}"></div></div>
+      <div class="egg-name">${egg.name}</div>
+      <div class="egg-cost">🎫 ×${egg.cost}</div>
+      <div class="egg-hint">${egg.hint}</div>`;
+    card.addEventListener('click', () => {
+      card.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    });
+    car.appendChild(card);
+  });
+  car.addEventListener('scroll', () => requestAnimationFrame(updateActiveEgg));
+}
+
+function updateActiveEgg() {
+  const car = document.getElementById('eggCarousel');
+  const center = car.scrollLeft + car.clientWidth / 2;
+  let best = 0, bestDist = Infinity;
+  [...car.children].forEach((card, i) => {
+    const dist = Math.abs(card.offsetLeft + card.offsetWidth / 2 - center);
+    if (dist < bestDist) { bestDist = dist; best = i; }
+  });
+  if (best !== activeEggIdx) { activeEggIdx = best; renderDrawUI(); }
+}
+
+function renderDrawUI() {
+  const car = document.getElementById('eggCarousel');
+  [...car.children].forEach((card, i) => card.classList.toggle('active', i === activeEggIdx));
+  document.getElementById('eggDots').innerHTML = GACHA_EGGS.map((_, i) =>
+    `<span class="egg-dot${i === activeEggIdx ? ' active' : ''}"></span>`).join('');
+
+  const egg = GACHA_EGGS[activeEggIdx];
+  const enough = gacha.tickets >= egg.cost;
+  document.getElementById('drawTicketStatus').textContent = `もっているガチャ券：🎫 ×${gacha.tickets}`;
+  const btn = document.getElementById('drawBtn');
+  btn.disabled = !enough || isDrawing;
+  btn.textContent = enough
+    ? `たまごを割る！（🎫 ×${egg.cost} つかう）`
+    : `ガチャ券が足りない…（🎫 ×${egg.cost} 必要）`;
+  renderOddsTable(egg);
+}
+
+// 選択中の卵の景品・当選確率一覧
+function renderOddsTable(egg) {
+  document.getElementById('oddsTitle').textContent = `${egg.name}の景品と当たる確率`;
+  const total = egg.weights.reduce((a, b) => a + b, 0);
+  const list = document.getElementById('oddsList');
+  list.innerHTML = '';
+  // レア度が高い順（★10→★1）で表示
+  PRIZES.slice().reverse().forEach((prize) => {
+    const pct = (egg.weights[prize.star - 1] / total) * 100;
+    const pctStr = String(parseFloat(pct.toFixed(pct < 1 ? 2 : 1)));
+    const row = document.createElement('div');
+    row.className = 'odds-row';
+    row.innerHTML = `
+      <span class="odds-emoji">${prize.emoji}</span>
+      <span class="odds-star">★${prize.star}</span>
+      <span class="odds-name">${prize.name}</span>
+      <span class="odds-pct">${pctStr}%</span>`;
+    list.appendChild(row);
+  });
+}
+
+function pickStar(weights) {
+  const total = weights.reduce((a, b) => a + b, 0);
+  let r = Math.random() * total;
+  for (let i = 0; i < weights.length; i++) {
+    r -= weights[i];
+    if (r < 0) return i + 1;
+  }
+  return weights.length;
+}
+
+function drawGacha() {
+  if (isDrawing) return;
+  const egg = GACHA_EGGS[activeEggIdx];
+  if (gacha.tickets < egg.cost) return;
+  isDrawing = true;
+  gacha.tickets -= egg.cost;
+  const star = pickStar(egg.weights);
+  const prize = PRIZES[star - 1];
+  gacha.prizes.unshift({ id: Date.now(), star, date: localDateStr(new Date()), used: false });
+  saveGacha();
+  renderGachaPage();
+  runGachaAnimation(egg, star, prize);
+}
+
+function glowClassFor(star) {
+  if (star >= 10) return 'glow-ultra';
+  if (star >= 7) return 'glow-high';
+  if (star >= 5) return 'glow-mid';
+  return 'glow-low';
+}
+
+function runGachaAnimation(egg, star, prize) {
+  const anim = document.getElementById('gachaAnim');
+  const glow = document.getElementById('gachaAnimGlow');
+  anim.className = 'gacha-anim';
+  glow.className = 'gacha-anim-glow';
+  document.getElementById('animEggFull').className = `egg-shape anim-egg-full egg-tier${egg.tier}`;
+  document.getElementById('animEggTop').className = `egg-shape egg-tier${egg.tier}`;
+  document.getElementById('animEggBottom').className = `egg-shape egg-tier${egg.tier}`;
+  document.getElementById('gachaResult').classList.add('hidden');
+
+  anim.classList.add('stage-shake');
+  animTimers.push(setTimeout(() => anim.classList.add('stage-crack'), 1500));
+  animTimers.push(setTimeout(() => {
+    anim.classList.add('stage-open');
+    glow.classList.add(glowClassFor(star));
+  }, 2600));
+  animTimers.push(setTimeout(() => showGachaResult(star, prize), 3200));
+}
+
+function showGachaResult(star, prize) {
+  document.getElementById('gachaResultStars').innerHTML =
+    `<span class="stars-filled">${'★'.repeat(star)}</span><span class="stars-empty">${'☆'.repeat(10 - star)}</span>`;
+  document.getElementById('gachaResultEmoji').textContent = prize.emoji;
+  document.getElementById('gachaResultName').textContent = prize.name;
+  const sub = document.getElementById('gachaResultSub');
+  if (star === 1) sub.textContent = '残念…また挑戦しよう！';
+  else if (star === 10) sub.textContent = '🎊 最高レア！！おめでとう！！チケット一覧に追加しました';
+  else sub.textContent = 'チケット一覧に追加しました';
+  document.getElementById('gachaResult').classList.remove('hidden');
+}
+
+function closeGachaAnim() {
+  animTimers.forEach((t) => clearTimeout(t));
+  animTimers.length = 0;
+  document.getElementById('gachaAnim').className = 'gacha-anim hidden';
+  isDrawing = false;
+  renderGachaPage();
+}
+
+function renderPrizeList() {
+  const list = document.getElementById('prizeList');
+  list.innerHTML = '';
+  if (!gacha.prizes.length) {
+    list.innerHTML = '<div class="prize-empty">まだ景品がありません。<br>ミッションを達成してガチャを引こう！</div>';
+    return;
+  }
+  gacha.prizes.forEach((pr) => {
+    const prize = PRIZES[pr.star - 1];
+    const isHazure = pr.star === 1;
+    const item = document.createElement('div');
+    item.className = 'prize-item' + ((pr.used || isHazure) ? ' used' : '');
+    const [y, m, d] = pr.date.split('-').map(Number);
+    let action;
+    if (isHazure) action = '<span class="prize-used-label">ざんねん</span>';
+    else if (pr.used) action = '<span class="prize-used-label">使用済</span>';
+    else action = '<button class="prize-use-btn">使用済みにする</button>';
+    item.innerHTML = `
+      <span class="prize-emoji">${prize.emoji}</span>
+      <div class="prize-info">
+        <div class="prize-name">★${pr.star} ${prize.name}</div>
+        <div class="prize-date">${y}/${m}/${d}</div>
+      </div>
+      ${action}`;
+    const btn = item.querySelector('.prize-use-btn');
+    if (btn) btn.addEventListener('click', () => {
+      if (!confirm(`「★${pr.star} ${prize.name}」を使用済みにする？\n（倉本に見せてから押してね）`)) return;
+      pr.used = true;
+      saveGacha();
+      renderPrizeList();
+    });
+    list.appendChild(item);
+  });
+}
+
+// ── ミッション・ガチャのイベント登録 ────────────────────
+
+document.querySelectorAll('.gacha-link').forEach((b) => b.addEventListener('click', openGacha));
+document.getElementById('gachaBackBtn').addEventListener('click', () => closeGacha());
+document.getElementById('missionClaimBtn').addEventListener('click', claimMissions);
+document.querySelectorAll('.gacha-subtab').forEach((t) => {
+  t.addEventListener('click', () => { currentGachaTab = t.dataset.gtab; renderGachaPage(); });
+});
+document.getElementById('drawBtn').addEventListener('click', drawGacha);
+document.getElementById('gachaResultClose').addEventListener('click', closeGachaAnim);
 
 // ── 初期化 ─────────────────────────────────────────────
 
