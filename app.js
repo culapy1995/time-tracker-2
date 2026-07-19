@@ -713,9 +713,11 @@ document.addEventListener('visibilitychange', () => {
 const GACHA_KEY = 'timeTracker.gacha.v1';
 
 // mode: 'gte' = 目標時間以上で達成（現在はすべてこのタイプ）
-// 週ビュー・月ビュー共通のミッション。判定は表示中の週/月に対して行い、週毎・月毎にリセットされる。
+// 判定は表示中の週/月に対して行い、週毎・月毎にリセットされる。
 // ★ project: の値は友達サイトの記録項目名（試験勉強／学校／家事）に合わせてある ★
-const MISSION_DEFS = [
+
+// 週ビュー用ミッション（週毎にリセット）
+const MISSION_DEFS_WEEK = [
   { id: 'shikaku-10', project: '試験勉強', hours: 10, mode: 'gte', tickets: 1 },
   { id: 'shikaku-15', project: '試験勉強', hours: 15, mode: 'gte', tickets: 1 },
   { id: 'shikaku-20', project: '試験勉強', hours: 20, mode: 'gte', tickets: 1 },
@@ -735,6 +737,39 @@ const MISSION_DEFS = [
   { id: 'kaji-15',    project: '家事',     hours: 15, mode: 'gte', tickets: 1 },
   { id: 'kaji-30',    project: '家事',     hours: 30, mode: 'gte', tickets: 1 },
 ];
+
+// 月ビュー用ミッション（月毎にリセット）
+const MISSION_DEFS_MONTH = [
+  { id: 'shikaku-m-20', project: '試験勉強', hours: 20, mode: 'gte', tickets: 1 },
+  { id: 'shikaku-m-30', project: '試験勉強', hours: 30, mode: 'gte', tickets: 1 },
+  { id: 'shikaku-m-40', project: '試験勉強', hours: 40, mode: 'gte', tickets: 1 },
+  { id: 'shikaku-m-50', project: '試験勉強', hours: 50, mode: 'gte', tickets: 1 },
+  { id: 'shikaku-m-60', project: '試験勉強', hours: 60, mode: 'gte', tickets: 1 },
+  { id: 'shikaku-m-65', project: '試験勉強', hours: 65, mode: 'gte', tickets: 1 },
+  { id: 'shikaku-m-70', project: '試験勉強', hours: 70, mode: 'gte', tickets: 1 },
+  { id: 'shikaku-m-72', project: '試験勉強', hours: 72, mode: 'gte', tickets: 1 },
+  { id: 'shikaku-m-74', project: '試験勉強', hours: 74, mode: 'gte', tickets: 1 },
+  { id: 'shikaku-m-76', project: '試験勉強', hours: 76, mode: 'gte', tickets: 1 },
+  { id: 'shikaku-m-78', project: '試験勉強', hours: 78, mode: 'gte', tickets: 1 },
+  { id: 'shikaku-m-80', project: '試験勉強', hours: 80, mode: 'gte', tickets: 1 },
+  { id: 'shikaku-m-81', project: '試験勉強', hours: 81, mode: 'gte', tickets: 1 },
+  { id: 'shikaku-m-82', project: '試験勉強', hours: 82, mode: 'gte', tickets: 1 },
+  { id: 'shikaku-m-83', project: '試験勉強', hours: 83, mode: 'gte', tickets: 1 },
+  { id: 'shikaku-m-84', project: '試験勉強', hours: 84, mode: 'gte', tickets: 1 },
+  { id: 'shikaku-m-85', project: '試験勉強', hours: 85, mode: 'gte', tickets: 1 },
+  { id: 'gakko-m-20',   project: '学校',     hours: 20, mode: 'gte', tickets: 1 },
+  { id: 'gakko-m-30',   project: '学校',     hours: 30, mode: 'gte', tickets: 1 },
+  { id: 'gakko-m-40',   project: '学校',     hours: 40, mode: 'gte', tickets: 1 },
+  { id: 'gakko-m-50',   project: '学校',     hours: 50, mode: 'gte', tickets: 1 },
+  { id: 'kaji-m-15',    project: '家事',     hours: 15, mode: 'gte', tickets: 1 },
+  { id: 'kaji-m-30',    project: '家事',     hours: 30, mode: 'gte', tickets: 1 },
+  { id: 'kaji-m-40',    project: '家事',     hours: 40, mode: 'gte', tickets: 1 },
+  { id: 'kaji-m-50',    project: '家事',     hours: 50, mode: 'gte', tickets: 1 },
+];
+
+function missionDefsFor(period) {
+  return period === 'month' ? MISSION_DEFS_MONTH : MISSION_DEFS_WEEK;
+}
 
 function loadGacha() {
   try {
@@ -807,7 +842,7 @@ function missionText(ms, masked) {
 }
 
 function unclaimedAchievedFor(period, offset) {
-  return MISSION_DEFS.filter((ms) =>
+  return missionDefsFor(period).filter((ms) =>
     !gacha.claimed.includes(claimKey(ms, period, offset)) && isAchieved(ms, period, offset));
 }
 
@@ -816,7 +851,7 @@ function renderMissionSection(period) {
   if (!list) return;
   const offset = period === 'week' ? weekOffset : monthOffset;
   list.innerHTML = '';
-  MISSION_DEFS.forEach((ms) => {
+  missionDefsFor(period).forEach((ms) => {
     const achieved = isAchieved(ms, period, offset);
     const claimed = gacha.claimed.includes(claimKey(ms, period, offset));
     const item = document.createElement('div');
