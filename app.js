@@ -776,14 +776,30 @@ function loadGacha() {
     const r = localStorage.getItem(GACHA_KEY);
     if (r) {
       const g = JSON.parse(r);
-      return { tickets: g.tickets || 0, claimed: g.claimed || [], achieved: g.achieved || [], prizes: g.prizes || [] };
+      const data = { tickets: g.tickets || 0, claimed: g.claimed || [], achieved: g.achieved || [], prizes: g.prizes || [], prizeSchema: g.prizeSchema || 1 };
+      migratePrizeSchema(data);
+      return data;
     }
   } catch (e) {}
-  return { tickets: 0, claimed: [], achieved: [], prizes: [] };
+  return { tickets: 0, claimed: [], achieved: [], prizes: [], prizeSchema: 2 };
 }
 function saveGacha() { localStorage.setItem(GACHA_KEY, JSON.stringify(gacha)); }
 
+// 景品表の改定に伴う一度きりの移行。★EX(11) 新設で ★9/★10 の中身が入れ替わるため、
+// 既に獲得済みの景品の“中身”がズレないよう、旧スター番号を新スター番号へ読み替える。
+//   旧★9 飲み会券 → ★10 飲み会券 / 旧★10 倉本の祝福 → ★EX(11) 倉本の祝福
+//   ★1〜8 は景品が変わらないためそのまま。ガチャ券枚数・受取記録(claimed)は一切いじらない。
+function migratePrizeSchema(data) {
+  if (data.prizeSchema >= 2) return;
+  data.prizes.forEach((pr) => {
+    if (pr.star === 10) pr.star = 11;
+    else if (pr.star === 9) pr.star = 10;
+  });
+  data.prizeSchema = 2;
+}
+
 let gacha = loadGacha();
+saveGacha(); // 上記の一度きり移行を確定保存（ガチャ券・獲得済み景品はそのまま維持）
 
 // 表示中の週/月に含まれる日付キー一覧
 function periodDayKeys(period, offset) {
@@ -909,6 +925,7 @@ function claimMissions() {
 
 // ── ガチャ ──────────────────────────────────────────────
 
+// star 11 は「EX」として表示される最上位の特別枠
 const PRIZES = [
   { star: 1,  name: 'ハズレ',               emoji: '💨' },
   { star: 2,  name: '駄菓子',               emoji: '🍬' },
@@ -918,17 +935,22 @@ const PRIZES = [
   { star: 6,  name: 'コメダ珈琲',           emoji: '☕' },
   { star: 7,  name: 'ランチ券',             emoji: '🍝' },
   { star: 8,  name: '晩御飯券（お酒なし）', emoji: '🍽️' },
-  { star: 9,  name: '飲み会券',             emoji: '🍻' },
-  { star: 10, name: '倉本からの祝福の言葉', emoji: '👑' },
+  { star: 9,  name: 'マッサージ券',         emoji: '💆' },
+  { star: 10, name: '飲み会券',             emoji: '🍻' },
+  { star: 11, name: '倉本からの祝福の言葉', emoji: '👑' },
 ];
 
+function starLabel(star) { return star >= 11 ? 'EX' : String(star); }
+
+// weights の11番目(index 10)が ⭐EX。各たまごとも基本10枠の合計が100なので、
+// EX=100/99 を足すと EX の当選確率はちょうど1%、残り99%は既存比率のまま配分される。
 const GACHA_EGGS = [
   { tier: 1, cost: 1,  name: 'ノーマルたまご', hint: '⭐️の高い景品は出にくい…',
-    weights: [50, 25, 12, 6, 3, 2, 1, 0.7, 0.25, 0.05] },
+    weights: [50, 25, 12, 6, 3, 2, 1, 0.7, 0.25, 0.05, 100 / 99] },
   { tier: 2, cost: 5,  name: 'スーパーたまご', hint: 'バランス型！',
-    weights: [20, 20, 18, 15, 11, 7, 4, 3, 1.5, 0.5] },
+    weights: [20, 20, 18, 15, 11, 7, 4, 3, 1.5, 0.5, 100 / 99] },
   { tier: 3, cost: 10, name: 'ウルトラたまご', hint: '⭐️の高い景品が出やすい！',
-    weights: [5, 8, 12, 15, 17, 15, 12, 8, 6, 2] },
+    weights: [5, 8, 12, 15, 17, 15, 12, 8, 6, 2, 100 / 99] },
 ];
 
 let gachaOpen = false;
@@ -1034,7 +1056,7 @@ function renderOddsTable(egg) {
     row.className = 'odds-row';
     row.innerHTML = `
       <span class="odds-emoji">${prize.emoji}</span>
-      <span class="odds-star">★${prize.star}</span>
+      <span class="odds-star">★${starLabel(prize.star)}</span>
       <span class="odds-name">${prize.name}</span>
       <span class="odds-pct">${pctStr}%</span>`;
     list.appendChild(row);
@@ -1066,7 +1088,7 @@ function drawGacha() {
 }
 
 function glowClassFor(star) {
-  if (star >= 10) return 'glow-ultra';
+  if (star >= 11) return 'glow-ultra';
   if (star >= 7) return 'glow-high';
   if (star >= 5) return 'glow-mid';
   return 'glow-low';
@@ -1093,12 +1115,14 @@ function runGachaAnimation(egg, star, prize) {
 
 function showGachaResult(star, prize) {
   document.getElementById('gachaResultStars').innerHTML =
-    `<span class="stars-filled">${'★'.repeat(star)}</span><span class="stars-empty">${'☆'.repeat(10 - star)}</span>`;
+    star >= 11
+      ? `<span class="stars-filled">★EX★</span>`
+      : `<span class="stars-filled">${'★'.repeat(star)}</span><span class="stars-empty">${'☆'.repeat(10 - star)}</span>`;
   document.getElementById('gachaResultEmoji').textContent = prize.emoji;
   document.getElementById('gachaResultName').textContent = prize.name;
   const sub = document.getElementById('gachaResultSub');
   if (star === 1) sub.textContent = '残念…また挑戦しよう！';
-  else if (star === 10) sub.textContent = '🎊 最高レア！！おめでとう！！チケット一覧に追加しました';
+  else if (star >= 11) sub.textContent = '🎊 EXレア！！おめでとう！！チケット一覧に追加しました';
   else sub.textContent = 'チケット一覧に追加しました';
   document.getElementById('gachaResult').classList.remove('hidden');
 }
@@ -1131,13 +1155,13 @@ function renderPrizeList() {
     item.innerHTML = `
       <span class="prize-emoji">${prize.emoji}</span>
       <div class="prize-info">
-        <div class="prize-name">★${pr.star} ${prize.name}</div>
+        <div class="prize-name">★${starLabel(pr.star)} ${prize.name}</div>
         <div class="prize-date">${y}/${m}/${d}</div>
       </div>
       ${action}`;
     const btn = item.querySelector('.prize-use-btn');
     if (btn) btn.addEventListener('click', () => {
-      if (!confirm(`「★${pr.star} ${prize.name}」を使用済みにする？\n（倉本に見せてから押してね）`)) return;
+      if (!confirm(`「★${starLabel(pr.star)} ${prize.name}」を使用済みにする？\n（倉本に見せてから押してね）`)) return;
       pr.used = true;
       saveGacha();
       renderPrizeList();
