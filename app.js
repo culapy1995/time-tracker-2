@@ -959,6 +959,8 @@ let currentGachaTab = 'draw';
 let activeEggIdx = 0;
 let eggCarouselBuilt = false;
 let isDrawing = false;
+let animState = null;
+let awaitingTapCb = null;
 const animTimers = [];
 
 function openGacha() {
@@ -1094,23 +1096,99 @@ function glowClassFor(star) {
   return 'glow-low';
 }
 
+// ★5以上のとき、演出ルートを抽選で決める（景品の結果自体は不変・演出だけ分岐）
+// normal=いつも通り即結果 / pulu=プルプル→タップ→結果 / newegg=新たまご出現→プルプル→タップ→結果
+// 割り振り：⭐5=プルプル対象 / ⭐6以上（＋⭐EX=star11）=新たまご対象
+function pickAnimRoute(star) {
+  if (star < 5) return 'normal';                                   // ⭐4以下：いつも通り
+  if (star < 6) return Math.random() < 0.4 ? 'normal' : 'pulu';    // ⭐5：40%通常 / 60%プルプル
+  const r = Math.random();                                         // ⭐6以上＋⭐EX(11)：
+  return r < 0.4 ? 'normal' : (r < 0.7 ? 'pulu' : 'newegg');       //   40%通常 / 30%プルプル / 30%新たまご
+}
+
+function setAnimEggTier(tierClass) {
+  document.getElementById('animEggFull').className = `egg-shape anim-egg-full ${tierClass}`;
+  document.getElementById('animEggTop').className = `egg-shape ${tierClass}`;
+  document.getElementById('animEggBottom').className = `egg-shape ${tierClass}`;
+}
+
+function showConfirm(text) {
+  const el = document.getElementById('gachaConfirmText');
+  el.textContent = text;
+  el.classList.remove('hidden');
+}
+function hideConfirmUI() {
+  document.getElementById('gachaConfirmText').classList.add('hidden');
+  document.getElementById('gachaTapPrompt').classList.add('hidden');
+}
+function waitTap(cb) {
+  awaitingTapCb = cb;
+  document.getElementById('gachaTapPrompt').classList.remove('hidden');
+}
+
 function runGachaAnimation(egg, star, prize) {
+  animState = { egg, star, prize, route: pickAnimRoute(star) };
+  awaitingTapCb = null;
   const anim = document.getElementById('gachaAnim');
-  const glow = document.getElementById('gachaAnimGlow');
+  document.getElementById('gachaAnimGlow').className = 'gacha-anim-glow';
   anim.className = 'gacha-anim';
-  glow.className = 'gacha-anim-glow';
-  document.getElementById('animEggFull').className = `egg-shape anim-egg-full egg-tier${egg.tier}`;
-  document.getElementById('animEggTop').className = `egg-shape egg-tier${egg.tier}`;
-  document.getElementById('animEggBottom').className = `egg-shape egg-tier${egg.tier}`;
+  setAnimEggTier(`egg-tier${egg.tier}`);
   document.getElementById('gachaResult').classList.add('hidden');
+  hideConfirmUI();
 
   anim.classList.add('stage-shake');
   animTimers.push(setTimeout(() => anim.classList.add('stage-crack'), 1500));
+  animTimers.push(setTimeout(afterCrack, 2600));
+}
+
+function afterCrack() {
+  if (!animState) return;
+  if (animState.route === 'pulu') {
+    showConfirm('⭐5以上 確定！');
+    waitTap(() => openEgg(true));
+  } else if (animState.route === 'newegg') {
+    openFirstEggThenNewEgg();
+  } else {
+    openEgg(true);
+  }
+}
+
+function openEgg(thenResult) {
+  const anim = document.getElementById('gachaAnim');
+  hideConfirmUI();
+  anim.classList.add('stage-open');
+  document.getElementById('gachaAnimGlow').classList.add(glowClassFor(animState.star));
+  if (thenResult) animTimers.push(setTimeout(() => showGachaResult(animState.star, animState.prize), 700));
+}
+
+// 最初のたまごが割れて、中から新しい「⭐6以上確定」たまごが出てくる
+function openFirstEggThenNewEgg() {
+  document.getElementById('gachaAnim').classList.add('stage-open'); // 最初のたまごが割れる（グロー無し）
+  animTimers.push(setTimeout(spawnNewEgg, 900));
+}
+
+function spawnNewEgg() {
+  const anim = document.getElementById('gachaAnim');
+  document.getElementById('gachaAnimGlow').className = 'gacha-anim-glow';
+  anim.className = 'gacha-anim just-spawned';
+  setAnimEggTier('egg-confirm');
+  document.getElementById('gachaResult').classList.add('hidden');
+  hideConfirmUI();
+  animTimers.push(setTimeout(() => anim.classList.remove('just-spawned'), 550));
+  anim.classList.add('stage-shake');
+  animTimers.push(setTimeout(() => anim.classList.add('stage-crack'), 700));
   animTimers.push(setTimeout(() => {
-    anim.classList.add('stage-open');
-    glow.classList.add(glowClassFor(star));
-  }, 2600));
-  animTimers.push(setTimeout(() => showGachaResult(star, prize), 3200));
+    showConfirm('⭐6以上 確定！！');
+    waitTap(() => openEgg(true));
+  }, 1400));
+}
+
+function onGachaAnimTap() {
+  if (!awaitingTapCb) return;
+  const cb = awaitingTapCb;
+  awaitingTapCb = null;
+  document.getElementById('gachaTapPrompt').classList.add('hidden');
+  cb();
 }
 
 function showGachaResult(star, prize) {
@@ -1130,9 +1208,25 @@ function showGachaResult(star, prize) {
 function closeGachaAnim() {
   animTimers.forEach((t) => clearTimeout(t));
   animTimers.length = 0;
+  awaitingTapCb = null;
+  animState = null;
   document.getElementById('gachaAnim').className = 'gacha-anim hidden';
+  hideConfirmUI();
   isDrawing = false;
   renderGachaPage();
+}
+
+// 引く前の確認ダイアログ（うっかり引き防止）
+function openDrawConfirm() {
+  if (isDrawing) return;
+  const egg = GACHA_EGGS[activeEggIdx];
+  if (gacha.tickets < egg.cost) return;
+  document.getElementById('drawConfirmDesc').textContent =
+    `${egg.name}を引きます。ガチャ券を🎫 ×${egg.cost} つかいます。`;
+  document.getElementById('drawConfirmModal').classList.remove('hidden');
+}
+function closeDrawConfirm() {
+  document.getElementById('drawConfirmModal').classList.add('hidden');
 }
 
 function renderPrizeList() {
@@ -1178,7 +1272,10 @@ document.getElementById('missionClaimBtn').addEventListener('click', claimMissio
 document.querySelectorAll('.gacha-subtab').forEach((t) => {
   t.addEventListener('click', () => { currentGachaTab = t.dataset.gtab; renderGachaPage(); });
 });
-document.getElementById('drawBtn').addEventListener('click', drawGacha);
+document.getElementById('drawBtn').addEventListener('click', openDrawConfirm);
+document.getElementById('drawConfirmYes').addEventListener('click', () => { closeDrawConfirm(); drawGacha(); });
+document.getElementById('drawConfirmNo').addEventListener('click', closeDrawConfirm);
+document.getElementById('gachaAnim').addEventListener('click', onGachaAnimTap);
 document.getElementById('gachaResultClose').addEventListener('click', closeGachaAnim);
 
 // ── 初期化 ─────────────────────────────────────────────

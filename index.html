@@ -136,6 +136,16 @@
     </div>
   </div>
 
+  <!-- ガチャ確認モーダル -->
+  <div id="drawConfirmModal" class="modal-overlay hidden">
+    <div class="modal-box">
+      <h2 class="modal-title">ガチャを引きますか？</h2>
+      <p class="modal-desc" id="drawConfirmDesc">たまごを割ってガチャを引きます。</p>
+      <button id="drawConfirmYes" class="modal-btn">はい</button>
+      <button id="drawConfirmNo" class="modal-btn modal-btn-sub">いいえ</button>
+    </div>
+  </div>
+
   <!-- ガチャ演出オーバーレイ -->
   <div id="gachaAnim" class="gacha-anim hidden">
     <div class="gacha-anim-glow" id="gachaAnimGlow"></div>
@@ -149,6 +159,8 @@
         <div class="egg-piece egg-piece-top"><div class="egg-shape" id="animEggTop"></div></div>
         <div class="egg-piece egg-piece-bottom"><div class="egg-shape" id="animEggBottom"></div></div>
       </div>
+      <div class="gacha-confirm-text hidden" id="gachaConfirmText"></div>
+      <div class="gacha-tap-prompt hidden" id="gachaTapPrompt">▲ 画面をタップ！</div>
       <div class="gacha-result hidden" id="gachaResult">
         <div class="gacha-result-stars" id="gachaResultStars"></div>
         <div class="gacha-result-emoji" id="gachaResultEmoji"></div>
