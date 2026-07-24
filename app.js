@@ -791,16 +791,17 @@ function missionDefsFor(period) {
 }
 
 function loadGacha() {
+  let data = { tickets: 0, claimed: [], achieved: [], prizes: [], prizeSchema: 2, gifts: [] };
   try {
     const r = localStorage.getItem(GACHA_KEY);
     if (r) {
       const g = JSON.parse(r);
-      const data = { tickets: g.tickets || 0, claimed: g.claimed || [], achieved: g.achieved || [], prizes: g.prizes || [], prizeSchema: g.prizeSchema || 1 };
+      data = { tickets: g.tickets || 0, claimed: g.claimed || [], achieved: g.achieved || [], prizes: g.prizes || [], prizeSchema: g.prizeSchema || 1, gifts: g.gifts || [] };
       migratePrizeSchema(data);
-      return data;
     }
   } catch (e) {}
-  return { tickets: 0, claimed: [], achieved: [], prizes: [], prizeSchema: 2 };
+  applyTicketGifts(data);
+  return data;
 }
 function saveGacha() { localStorage.setItem(GACHA_KEY, JSON.stringify(gacha)); }
 
@@ -815,6 +816,21 @@ function migratePrizeSchema(data) {
     else if (pr.star === 9) pr.star = 10;
   });
   data.prizeSchema = 2;
+}
+
+// 一度きりのチケットプレゼント（この端末で未受け取りのIDだけ加算）。
+// 既存のガチャ券に上乗せするだけで、獲得済み景品・受取記録には触れない。
+const TICKET_GIFTS = [
+  { id: 'gift-10-20260724', amount: 10 },
+];
+function applyTicketGifts(data) {
+  if (!data.gifts) data.gifts = [];
+  TICKET_GIFTS.forEach((g) => {
+    if (!data.gifts.includes(g.id)) {
+      data.tickets += g.amount;
+      data.gifts.push(g.id);
+    }
+  });
 }
 
 let gacha = loadGacha();
