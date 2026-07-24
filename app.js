@@ -972,6 +972,21 @@ const GACHA_EGGS = [
     weights: [5, 8, 12, 15, 17, 15, 12, 8, 6, 2, 100 / 99] },
 ];
 
+// リバース報酬（友達が“クラピ”に贈る側）。全体の REVERSE_RATE(30%) を占める。
+// star は 1〜7（★1が出やすく★7がレア）。演出/グローは通常景品と同じく star で判定される。
+const REVERSE_RATE = 0.30;
+const REVERSE_PRIZES = [
+  { star: 1, name: 'クラピに駄菓子',             emoji: '🍬' },
+  { star: 2, name: 'クラピにジュース',           emoji: '🧃' },
+  { star: 3, name: 'クラピにコンビニアイス',     emoji: '🍦' },
+  { star: 4, name: 'クラピに31アイスクリーム',   emoji: '🍨' },
+  { star: 5, name: 'クラピにランチ',             emoji: '🍝' },
+  { star: 6, name: 'クラピに晩御飯（飲みなし）', emoji: '🍽️' },
+  { star: 7, name: 'クラピに飲み代',             emoji: '🍻' },
+];
+// ★1(出やすい) 〜 ★7(レア)。この配分 × 30% が各リバース景品の当選確率。
+const REVERSE_WEIGHTS = [35, 25, 18, 12, 6, 3, 1];
+
 let gachaOpen = false;
 let gachaReturnView = 'week';
 let currentGachaTab = 'draw';
@@ -1063,15 +1078,29 @@ function renderDrawUI() {
   renderOddsTable(egg);
 }
 
-// 選択中の卵の景品・当選確率一覧
+// 選択中の卵の景品・当選確率一覧（もらえる報酬70% + クラピに贈る30%）
 function renderOddsTable(egg) {
   document.getElementById('oddsTitle').textContent = `${egg.name}の景品と当たる確率`;
-  const total = egg.weights.reduce((a, b) => a + b, 0);
   const list = document.getElementById('oddsList');
   list.innerHTML = '';
-  // レア度が高い順（★10→★1）で表示
-  PRIZES.slice().reverse().forEach((prize) => {
-    const pct = (egg.weights[prize.star - 1] / total) * 100;
+  const normalTotal = egg.weights.reduce((a, b) => a + b, 0);
+  const revTotal = REVERSE_WEIGHTS.reduce((a, b) => a + b, 0);
+  const normalPct = Math.round((1 - REVERSE_RATE) * 100);
+  const revPct = Math.round(REVERSE_RATE * 100);
+  addOddsGroup(list, `🎁 もらえる報酬（合計${normalPct}%）`, PRIZES,
+    (prize) => (egg.weights[prize.star - 1] / normalTotal) * (1 - REVERSE_RATE) * 100);
+  addOddsGroup(list, `🔄 クラピに贈る（合計${revPct}%）`, REVERSE_PRIZES,
+    (prize) => (REVERSE_WEIGHTS[prize.star - 1] / revTotal) * REVERSE_RATE * 100);
+}
+
+// レア度が高い順（★上→★1）で1グループ分の確率行を描画
+function addOddsGroup(list, label, prizes, pctFn) {
+  const head = document.createElement('div');
+  head.className = 'odds-group-label';
+  head.textContent = label;
+  list.appendChild(head);
+  prizes.slice().reverse().forEach((prize) => {
+    const pct = pctFn(prize);
     const pctStr = String(parseFloat(pct.toFixed(pct < 1 ? 2 : 1)));
     const row = document.createElement('div');
     row.className = 'odds-row';
@@ -1100,12 +1129,13 @@ function drawGacha() {
   if (gacha.tickets < egg.cost) return;
   isDrawing = true;
   gacha.tickets -= egg.cost;
-  const star = pickStar(egg.weights);
-  const prize = PRIZES[star - 1];
-  gacha.prizes.unshift({ id: Date.now(), star, date: localDateStr(new Date()), used: false });
+  const rev = Math.random() < REVERSE_RATE;                 // 全体の30%はリバース報酬（クラピに贈る）
+  const star = rev ? pickStar(REVERSE_WEIGHTS) : pickStar(egg.weights);
+  const prize = (rev ? REVERSE_PRIZES : PRIZES)[star - 1];
+  gacha.prizes.unshift({ id: Date.now(), star, rev, date: localDateStr(new Date()), used: false });
   saveGacha();
   renderGachaPage();
-  runGachaAnimation(egg, star, prize);
+  runGachaAnimation(egg, star, prize, rev);
 }
 
 function glowClassFor(star) {
@@ -1145,8 +1175,8 @@ function waitTap(cb) {
   document.getElementById('gachaTapPrompt').classList.remove('hidden');
 }
 
-function runGachaAnimation(egg, star, prize) {
-  animState = { egg, star, prize, route: pickAnimRoute(star) };
+function runGachaAnimation(egg, star, prize, rev) {
+  animState = { egg, star, prize, rev, route: pickAnimRoute(star) };
   awaitingTapCb = null;
   const anim = document.getElementById('gachaAnim');
   document.getElementById('gachaAnimGlow').className = 'gacha-anim-glow';
@@ -1177,7 +1207,7 @@ function openEgg(thenResult) {
   hideConfirmUI();
   anim.classList.add('stage-open');
   document.getElementById('gachaAnimGlow').classList.add(glowClassFor(animState.star));
-  if (thenResult) animTimers.push(setTimeout(() => showGachaResult(animState.star, animState.prize), 700));
+  if (thenResult) animTimers.push(setTimeout(() => showGachaResult(animState.star, animState.prize, animState.rev), 700));
 }
 
 // 最初のたまごが割れて、中から新しい「⭐6以上確定」たまごが出てくる
@@ -1210,15 +1240,17 @@ function onGachaAnimTap() {
   cb();
 }
 
-function showGachaResult(star, prize) {
+function showGachaResult(star, prize, rev) {
+  const maxStar = rev ? 7 : 10;
   document.getElementById('gachaResultStars').innerHTML =
-    star >= 11
+    (!rev && star >= 11)
       ? `<span class="stars-filled">★EX★</span>`
-      : `<span class="stars-filled">${'★'.repeat(star)}</span><span class="stars-empty">${'☆'.repeat(10 - star)}</span>`;
+      : `<span class="stars-filled">${'★'.repeat(star)}</span><span class="stars-empty">${'☆'.repeat(Math.max(0, maxStar - star))}</span>`;
   document.getElementById('gachaResultEmoji').textContent = prize.emoji;
   document.getElementById('gachaResultName').textContent = prize.name;
   const sub = document.getElementById('gachaResultSub');
-  if (star === 1) sub.textContent = '残念…また挑戦しよう！';
+  if (rev) sub.textContent = '🔄 クラピにプレゼント！チケット一覧に追加しました';
+  else if (star === 1) sub.textContent = '残念…また挑戦しよう！';
   else if (star >= 11) sub.textContent = '🎊 EXレア！！おめでとう！！チケット一覧に追加しました';
   else sub.textContent = 'チケット一覧に追加しました';
   document.getElementById('gachaResult').classList.remove('hidden');
@@ -1256,15 +1288,17 @@ function renderPrizeList() {
     return;
   }
   gacha.prizes.forEach((pr) => {
-    const prize = PRIZES[pr.star - 1];
-    const isHazure = pr.star === 1;
+    const prize = (pr.rev ? REVERSE_PRIZES : PRIZES)[pr.star - 1];
+    if (!prize) return;
+    const isHazure = !pr.rev && pr.star === 1;
     const item = document.createElement('div');
-    item.className = 'prize-item' + ((pr.used || isHazure) ? ' used' : '');
+    item.className = 'prize-item' + ((pr.used || isHazure) ? ' used' : '') + (pr.rev ? ' reverse' : '');
     const [y, m, d] = pr.date.split('-').map(Number);
+    const doneWord = pr.rev ? '渡した' : '使用済み';
     let action;
     if (isHazure) action = '<span class="prize-used-label">ざんねん</span>';
-    else if (pr.used) action = '<span class="prize-used-label">使用済</span>';
-    else action = '<button class="prize-use-btn">使用済みにする</button>';
+    else if (pr.used) action = `<span class="prize-used-label">${pr.rev ? '渡した' : '使用済'}</span>`;
+    else action = `<button class="prize-use-btn">${pr.rev ? '渡した！' : '使用済みにする'}</button>`;
     item.innerHTML = `
       <span class="prize-emoji">${prize.emoji}</span>
       <div class="prize-info">
@@ -1274,7 +1308,8 @@ function renderPrizeList() {
       ${action}`;
     const btn = item.querySelector('.prize-use-btn');
     if (btn) btn.addEventListener('click', () => {
-      if (!confirm(`「★${starLabel(pr.star)} ${prize.name}」を使用済みにする？\n（倉本に見せてから押してね）`)) return;
+      const note = pr.rev ? 'クラピに渡したら押してね' : '倉本に見せてから押してね';
+      if (!confirm(`「★${starLabel(pr.star)} ${prize.name}」を${doneWord}にする？\n（${note}）`)) return;
       pr.used = true;
       saveGacha();
       renderPrizeList();
