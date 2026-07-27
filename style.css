@@ -629,6 +629,7 @@ html, body {
   cursor: pointer;
 }
 .prize-item.reverse { background: #fff3e0; border-color: #ffcc80; }
+.prize-item.self { background: #e3f2fd; border-color: #90caf9; }
 .prize-item.used { opacity: 0.55; }
 .prize-item.used .prize-name { color: var(--muted); text-decoration: line-through; }
 .prize-used-label { font-size: 12px; font-weight: 700; color: var(--muted); flex-shrink: 0; }
